@@ -1,43 +1,357 @@
+import org.mindrot.jbcrypt.BCrypt;
 import java.sql.*;
-import java.util.Scanner;
+import java.util.ArrayList;
+import java.util.List;
 
-public class DbUser extends DatabaseConnector {
+public class DbFunctions extends DatabaseConnector implements DbFunctionsInterface {
 
-    private Scanner scanner = new Scanner(System.in);
+    private final SessionManager sessionManager = SessionManager.getInstance();
 
-    private void createUser(Connection connection) throws SQLException {
-        System.out.print("Email: ");
-        String email = scanner.nextLine();
-        System.out.print("Şifre: ");
-        String password = scanner.nextLine();
+    private Room activeRoom; // Aktif oda bilgisi
 
-        String query = "INSERT INTO users (email, password) VALUES (?, ?)";
-        try (PreparedStatement statement = connection.prepareStatement(query)) {
-            statement.setString(1, email);
-            statement.setString(2, password);
-            statement.executeUpdate();
-            System.out.println("Kullanıcı başarıyla oluşturuldu!");
+    public Room getActiveRoom() {
+        return activeRoom;
+    }
+
+    private void setActiveRoom(Room room) {
+        this.activeRoom = room;
+    }
+
+
+
+    @Override
+    public void createUser(String email, String plainPassword, String username) throws SQLException {
+        try (Connection connection = DatabaseConnector.getConnection()) {
+            String hashedPassword = hashPassword(plainPassword);
+
+            String query = "INSERT INTO users (email, password, username) VALUES (?, ?, ?)";
+            try (PreparedStatement statement = connection.prepareStatement(query)) {
+                statement.setString(1, email);
+                statement.setString(2, hashedPassword);
+                statement.setString(3, username);
+                statement.executeUpdate();
+                System.out.println("Kullanıcı başarıyla oluşturuldu!");
+                loginUser(email, plainPassword);  // Giriş yaptırtma
+            }
         }
     }
 
-    private void loginUser(Connection connection) throws SQLException {
-        System.out.print("Email: ");
-        String email = scanner.nextLine();
-        System.out.print("Şifre: ");
-        String password = scanner.nextLine();
 
-        String query = "SELECT * FROM users WHERE email = ? AND password = ?";
-        try (PreparedStatement statement = connection.prepareStatement(query)) {
-            statement.setString(1, email);
-            statement.setString(2, password);
+    @Override
+    public boolean loginUser(String email, String passwordToCheck) throws SQLException {
+        try (Connection connection = DatabaseConnector.getConnection()) {
+            String query = "SELECT id, password FROM users WHERE email = ?";
+            try (PreparedStatement statement = connection.prepareStatement(query)) {
+                statement.setString(1, email);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (resultSet.next()) {
+                        String hashedPassword = resultSet.getString("password");
+                        int userId = resultSet.getInt("id");
+
+                        // Şifreyi kontrol et
+                        if (checkPassword(passwordToCheck, hashedPassword)) {
+                            sessionManager.login(userId, email);
+                            System.out.println("Giriş başarılı! Kullanıcı ID: " + userId);
+                            return true; // Başarılı giriş
+                        } else {
+                            System.out.println("Şifre yanlış.");
+                        }
+                    } else {
+                        System.out.println("Kullanıcı bulunamadı.");
+                    }
+                }
+            }
+        }
+        return false; // Giriş başarısız
+    }
+
+
+    @Override
+    public void sendMessage(int chatRoomId, String message) throws SQLException {
+        if (!sessionManager.isLoggedIn()) {
+            System.out.println("Lütfen önce giriş yapın.");
+            return;
+        }
+
+        String query = "INSERT INTO messages (chat_room, user_id, message, timestamp) VALUES (?, ?, ?, NOW())";
+
+        try (Connection connection = DatabaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setInt(1, chatRoomId);
+            statement.setInt(2, sessionManager.getUserId());
+            statement.setString(3, message);
+
+            int rowsAffected = statement.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Mesaj başarıyla gönderildi!");
+            } else {
+                System.out.println("Mesaj gönderilemedi.");
+            }
+        }
+    }
+
+    @Override
+    public void createRoom(String roomName, String password) throws SQLException {
+
+        if (!sessionManager.isLoggedIn()) {
+            System.out.println("Lütfen önce giriş yapın.");
+            return;
+        }
+
+        String query = "INSERT INTO chat_rooms (name, createdBy,password) VALUES (?, ?, ?)";
+
+        try (Connection connection = DatabaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, roomName);
+            statement.setInt(2, sessionManager.getUserId());
+            statement.setString(3, hashPassword(password));
+
+            int rowsAffected = statement.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Oda Oluşturuldu!");
+                joinRoom(roomName, password);
+            } else {
+                System.out.println("Oda Oluşturulamadı.");
+            }
+        }
+
+
+    }
+
+    @Override
+    public void joinRoom(String roomName, String password) throws SQLException {
+        if (!sessionManager.isLoggedIn()) {
+            System.out.println("Lütfen önce giriş yapın.");
+            return;
+        }
+
+        // Odanın id'sini almak için chat_rooms tablosunu sorgula
+        String query = "SELECT id, name, createdBy, password FROM chat_rooms WHERE name = ?";
+        Room room = null;
+
+        try (Connection connection = DatabaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, roomName);
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
-                    System.out.println("Giriş başarılı! Hoş geldiniz, " + email);
+                    int id = resultSet.getInt("id");
+                    String name = resultSet.getString("name");
+                    int createdBy = resultSet.getInt("createdBy");
+                    String storedPassword = resultSet.getString("password");
+
+                    // Şifre kontrolü
+                    if (checkPassword(password, storedPassword)) {
+                        room = new Room(id, name, createdBy, storedPassword);
+                    } else {
+                        System.out.println("Şifre yanlış.");
+                        return;
+                    }
                 } else {
-                    System.out.println("Email veya şifre yanlış.");
+                    System.out.println("Geçerli oda bulunamadı.");
+                    return;
+                }
+            }
+        }
+
+        // Eğer geçerli bir oda bulunmuşsa, oda kullanıcıya eklenebilir
+        if (room != null) {
+            String insertQuery = "INSERT INTO chat_users (chat_id, user_id) VALUES (?, ?)";
+
+            try (Connection connection = DatabaseConnector.getConnection();
+                 PreparedStatement statement = connection.prepareStatement(insertQuery)) {
+
+                statement.setInt(1, room.id);  // Geçerli oda id'si
+                statement.setInt(2, sessionManager.getUserId());
+
+                int rowsAffected = statement.executeUpdate();
+                if (rowsAffected > 0) {
+                    System.out.println("Odaya katıldınız!");
+                    setActiveRoom(room); // Aktif oda bilgisi güncelleniyor
+                    System.out.println("Aktif Oda: " + room.name);
+                } else {
+                    System.out.println("Odaya katılamadınız.");
                 }
             }
         }
     }
+
+    @Override
+    public void changePassword(String oldPassword, String newPassword) throws SQLException {
+        if (!sessionManager.isLoggedIn()) {
+            throw new SQLException("Lütfen önce giriş yapın.");
+        }
+
+        // Kullanıcıyı al
+        String query = "SELECT password FROM users WHERE id = ?";
+        try (Connection connection = DatabaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setInt(1, sessionManager.getUserId());
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    String storedPassword = resultSet.getString("password");
+
+                    // Eski şifreyi kontrol et
+                    if (checkPassword(oldPassword, storedPassword)) {
+                        // Yeni şifreyi hashle
+                        String hashedNewPassword = hashPassword(newPassword);
+                        String updateQuery = "UPDATE users SET password = ? WHERE id = ?";
+
+                        try (PreparedStatement updateStmt = connection.prepareStatement(updateQuery)) {
+                            updateStmt.setString(1, hashedNewPassword);
+                            updateStmt.setInt(2, sessionManager.getUserId());
+
+                            int rowsAffected = updateStmt.executeUpdate();
+                            if (rowsAffected > 0) {
+                                System.out.println("Şifreniz başarıyla değiştirildi!");
+                            } else {
+                                throw new SQLException("Şifre değiştirilemedi.");
+                            }
+                        }
+                    } else {
+                        throw new SQLException("Eski şifre yanlış.");
+                    }
+                } else {
+                    throw new SQLException("Kullanıcı bulunamadı.");
+                }
+            }
+        }
+    }
+
+    public String getUsername(int userId) throws SQLException {
+        String query = "SELECT username FROM users WHERE id = ?";
+        try (Connection connection = DatabaseConnector.getConnection();
+             PreparedStatement stmt = connection.prepareStatement(query)) {
+
+            stmt.setInt(1, userId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("username");
+                }
+            }
+        }
+        return "Unknown"; // Kullanıcı bulunamazsa varsayılan isim
+    }
+
+
+    @Override
+    public String hashPassword(String plainPassword) {
+        return BCrypt.hashpw(plainPassword, BCrypt.gensalt(12));  // 12 iyi bir güç seviyesi
+    }
+
+    @Override
+    public boolean checkPassword(String plainPassword, String hashedPassword) {
+        return BCrypt.checkpw(plainPassword, hashedPassword);
+    }
+
+    @Override
+    public List<Message> getMessages(int chatRoomId) throws SQLException {
+        List<Message> messages = new ArrayList<>();
+        String query = "SELECT * FROM messages WHERE chat_room = ? ORDER BY timestamp ASC";
+
+        try (Connection connection = DatabaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setInt(1, chatRoomId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    int id = resultSet.getInt("id");
+                    int userId = resultSet.getInt("user_id");
+                    String messageText = resultSet.getString("message");
+                    Timestamp timestamp = resultSet.getTimestamp("timestamp");
+
+                    Message message = new Message(id, chatRoomId, userId, messageText, timestamp);
+                    messages.add(message);
+                }
+            }
+        }
+        return messages;
+    }
+    private Room getChat(int chatRoomId) throws SQLException {
+        Room room = getActiveRoom();
+        String query = "SELECT * FROM chat_rooms WHERE id = ?";
+        try (Connection connection = DatabaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setInt(1, room.id);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                    int id = resultSet.getInt("id");
+                    String name = resultSet.getString("name");
+                    int createdBy = resultSet.getInt("createdBy");
+                    String password = resultSet.getString("password");
+
+                    room = new Room(id, name, createdBy, password);
+
+            }
+        }
+
+        return room;
+    }
+    public List<Room> getChats() throws SQLException {
+        int userId = sessionManager.getUserId();
+        List<Room> rooms = new ArrayList<>();
+
+        // Kullanıcının katıldığı odaları sorgulayan SQL
+        String query = "SELECT c.id, c.name, c.createdBy, c.password " +
+                "FROM chat_rooms c " +
+                "JOIN chat_users cu ON c.id = cu.chat_id " +
+                "WHERE cu.user_id = ?";
+
+        try (Connection connection = DatabaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            // Kullanıcı ID'sini yerleştir
+            statement.setInt(1, userId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    int id = resultSet.getInt("id");
+                    String name = resultSet.getString("name");
+                    int createdBy = resultSet.getInt("createdBy");
+                    String password = resultSet.getString("password");
+
+                    Room room = new Room(id, name, createdBy, password);
+                    rooms.add(room);  // Odayı listeye ekle
+                }
+            }
+        }
+
+        return rooms;
+    }
+
+    public int getChatCount() throws SQLException {
+        int userId = sessionManager.getUserId();
+        int chatCount = 0;
+
+        // Kullanıcının katıldığı odaların sayısını sorgulayan SQL
+        String query = "SELECT COUNT(*) AS chat_count " +
+                "FROM chat_rooms c " +
+                "JOIN chat_users cu ON c.id = cu.chat_id " +
+                "WHERE cu.user_id = ?";
+
+        try (Connection connection = DatabaseConnector.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            // Kullanıcı ID'sini yerleştir
+            statement.setInt(1, userId);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    chatCount = resultSet.getInt("chat_count");
+                }
+            }
+        }
+
+        return chatCount;
+    }
+
+
+
 }
