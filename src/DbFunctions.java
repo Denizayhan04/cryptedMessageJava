@@ -23,7 +23,7 @@ public class DbFunctions extends DatabaseConnector implements DbFunctionsInterfa
     public void createUser(String email, String plainPassword, String username) throws SQLException {
         try (Connection connection = DatabaseConnector.getConnection()) {
             String hashedPassword = hashPassword(plainPassword);
-
+            System.out.println();
             String query = "INSERT INTO users (email, password, username) VALUES (?, ?, ?)";
             try (PreparedStatement statement = connection.prepareStatement(query)) {
                 statement.setString(1, email);

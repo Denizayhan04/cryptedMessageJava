@@ -30,7 +30,6 @@ public class Panel2 extends BasePanel {
                     char[] passwordArray = pw1.getPassword();
                     String password = new String(passwordArray);
 
-
                     dbFunctions.createUser(tf1.getText(),password , tf2.getText());
                 } catch (SQLException ex) {
                     throw new RuntimeException(ex);
