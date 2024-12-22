@@ -22,8 +22,8 @@ public class Panel2 extends BasePanel {
         add(panel);
 
         DbFunctions dbFunctions = new DbFunctions();
-
-        b1.addActionListener(new ActionListener() { //create user
+        //Kullancıyı yarat
+        b1.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
@@ -45,7 +45,7 @@ public class Panel2 extends BasePanel {
             }
         });
 
-
+        //Panel1 e geri dön
         b2.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {

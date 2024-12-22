@@ -3,7 +3,7 @@ public class Room {
     public String name;
     public int createdBy;
     public String password;
-
+    //oda constructoru
     public Room(int id, String name, int createdBy, String password) {
         this.id = id;
         this.name = name;

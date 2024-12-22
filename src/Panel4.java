@@ -17,7 +17,7 @@ public class Panel4 extends BasePanel{
         super(frame);
 
         add(panel);
-
+        //Sohbet odasına katıl
         b1.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -39,7 +39,7 @@ public class Panel4 extends BasePanel{
             }
         });
 
-
+        //Geri dön
         b2.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {

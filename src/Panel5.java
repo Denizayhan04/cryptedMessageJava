@@ -29,7 +29,7 @@ public class Panel5 extends BasePanel {
         textArea.setEditable(false); // Kullanıcı düzenleyemesin
         textArea.setLineWrap(true);
         textArea.setWrapStyleWord(true);
-        textArea.setBackground(Color.LIGHT_GRAY); // İsteğe bağlı stil
+        textArea.setBackground(Color.LIGHT_GRAY);
         JScrollPane scrollPane = new JScrollPane(textArea);
         textpanel.setLayout(new BorderLayout());
         textpanel.add(scrollPane, BorderLayout.CENTER);
@@ -40,7 +40,7 @@ public class Panel5 extends BasePanel {
             textArea.append(message + "\n"); // Her mesajı yeni satıra ekle
         }
 
-        // button1'in geri dönüş işlevi
+        // geri dön
         button1.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {

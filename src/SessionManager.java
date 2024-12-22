@@ -17,7 +17,7 @@ public class SessionManager {
         }
         return instance;
     }
-
+    //login yapılınca sessionmanagerin doldurulması
     public void login(Integer userId, String email) {
         this.userId = userId;
         this.email = email;
@@ -27,26 +27,26 @@ public class SessionManager {
             e.printStackTrace();
         }
     }
-
+    //logout methodu
     public void logout() {
         this.userId = null;
         this.email = null;
         this.username = null;
     }
-
+    //giriş yapıldı mı
     public boolean isLoggedIn() {
         return this.userId != null;
     }
-
+    //userid getir
     public Integer getUserId() {
         return this.userId;
     }
-
+    //username getir
     public String getUsername() {
         return this.username;
     }
 
-    // Fetch username from the database
+    // veritabanından username getir
     private String fetchUsernameFromDatabase(Integer userId, Connection connection) {
         String sql = "SELECT username FROM users WHERE id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {

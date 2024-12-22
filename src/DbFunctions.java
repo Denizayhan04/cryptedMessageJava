@@ -4,21 +4,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DbFunctions extends DatabaseConnector implements DbFunctionsInterface {
-
+    //aktif kullanıcı sessionManager değişkenine atanır
     private final SessionManager sessionManager = SessionManager.getInstance();
 
     private Room activeRoom; // Aktif oda bilgisi
 
-    public Room getActiveRoom() {
-        return activeRoom;
-    }
-
+    //aktif odayı ayarla
     private void setActiveRoom(Room room) {
+        System.out.println("activeroom");
         this.activeRoom = room;
     }
 
 
-
+    //kullanıcı oluştur. email username ve parola al. parolayı hashle . users'e ekle. giriş yap
     @Override
     public void createUser(String email, String plainPassword, String username) throws SQLException {
         try (Connection connection = DatabaseConnector.getConnection()) {
@@ -36,7 +34,7 @@ public class DbFunctions extends DatabaseConnector implements DbFunctionsInterfa
         }
     }
 
-
+    //email al , parolayı al. şifreyi hashle. veritabanındaki hashli şifreyle karşılaştır. aynıysa true değilse false dön
     @Override
     public boolean loginUser(String email, String passwordToCheck) throws SQLException {
         try (Connection connection = DatabaseConnector.getConnection()) {
@@ -65,7 +63,7 @@ public class DbFunctions extends DatabaseConnector implements DbFunctionsInterfa
         return false; // Giriş başarısız
     }
 
-
+    // Mesajı ve charroomid al . giriş yapılmadıysa hata ver .messages tablosuna mesajı ekle
     @Override
     public void sendMessage(int chatRoomId, String message) throws SQLException {
         if (!sessionManager.isLoggedIn()) {
@@ -91,6 +89,7 @@ public class DbFunctions extends DatabaseConnector implements DbFunctionsInterfa
         }
     }
 
+    //Oda adı ve parolasını al.giriş yapılmadıysa hata ver. odayı oluştur
     @Override
     public void createRoom(String roomName, String password) throws SQLException {
 
@@ -119,7 +118,7 @@ public class DbFunctions extends DatabaseConnector implements DbFunctionsInterfa
 
 
     }
-
+    //giriş yapılmadıysa hata ver.Oda adını ve şifresini al. başarılıysa kullanıcıyı  chat_users tablosuna ekle
     @Override
     public void joinRoom(String roomName, String password) throws SQLException {
         if (!sessionManager.isLoggedIn()) {
@@ -179,6 +178,7 @@ public class DbFunctions extends DatabaseConnector implements DbFunctionsInterfa
         }
     }
 
+    //giriş yapılmadıysa hata ver. eski şifre ve veritabanındaki eski şifreyi karşılaştır. aynıysa yeni şifreyi hashleyip veritabanına at
     @Override
     public void changePassword(String oldPassword, String newPassword) throws SQLException {
         if (!sessionManager.isLoggedIn()) {
@@ -222,7 +222,7 @@ public class DbFunctions extends DatabaseConnector implements DbFunctionsInterfa
             }
         }
     }
-
+    //userid ye göre usernameyi getir
     public String getUsername(int userId) throws SQLException {
         String query = "SELECT username FROM users WHERE id = ?";
         try (Connection connection = DatabaseConnector.getConnection();
@@ -239,17 +239,17 @@ public class DbFunctions extends DatabaseConnector implements DbFunctionsInterfa
         return "Unknown"; // Kullanıcı bulunamazsa varsayılan isim
     }
 
-
+    //bcrypt ile şifreyi hashle
     @Override
     public String hashPassword(String plainPassword) {
         return BCrypt.hashpw(plainPassword, BCrypt.gensalt(12));  // 12 iyi bir güç seviyesi
     }
-
+    //bcrypt ile şifreleri karşılaştır
     @Override
     public boolean checkPassword(String plainPassword, String hashedPassword) {
         return BCrypt.checkpw(plainPassword, hashedPassword);
     }
-
+    //chatRoomid ye göre mesajları listeleyip getir
     @Override
     public List<Message> getMessages(int chatRoomId) throws SQLException {
         List<Message> messages = new ArrayList<>();
@@ -273,27 +273,8 @@ public class DbFunctions extends DatabaseConnector implements DbFunctionsInterfa
         }
         return messages;
     }
-    private Room getChat(int chatRoomId) throws SQLException {
-        Room room = getActiveRoom();
-        String query = "SELECT * FROM chat_rooms WHERE id = ?";
-        try (Connection connection = DatabaseConnector.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
 
-            statement.setInt(1, room.id);
-
-            try (ResultSet resultSet = statement.executeQuery()) {
-                    int id = resultSet.getInt("id");
-                    String name = resultSet.getString("name");
-                    int createdBy = resultSet.getInt("createdBy");
-                    String password = resultSet.getString("password");
-
-                    room = new Room(id, name, createdBy, password);
-
-            }
-        }
-
-        return room;
-    }
+    // kullanıcının dahil olduğu sohbetleri getir
     public List<Room> getChats() throws SQLException {
         int userId = sessionManager.getUserId();
         List<Room> rooms = new ArrayList<>();

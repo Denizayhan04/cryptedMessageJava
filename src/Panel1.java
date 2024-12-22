@@ -49,7 +49,7 @@ public class Panel1 extends BasePanel{
             }
         });
 
-
+        //Kayıt olma ekranına geçme
         b2.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {

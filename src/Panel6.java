@@ -25,8 +25,9 @@ public class Panel6 extends BasePanel {
         add(panel);
         DbFunctions db = new DbFunctions();
         String currentUserName = SessionManager.getInstance().getUsername();
-        System.out.println(currentUserName);
+        //usernameye kullanının usernamesini yazdır
         usernamearea.setText(currentUserName);
+        //chatcounta toplam sohbet sayını yazdır
         chatcount.setText(String.valueOf(db.getChatCount()));
         // Sonraki butonuna tıklandığında Panel7'ye geçiş yapılacak
         b3.addActionListener(new ActionListener() {
@@ -41,7 +42,7 @@ public class Panel6 extends BasePanel {
             }
         });
 
-        // Çıkış butonuna tıklandığında, çıkış yapılacak ve Panel1'e geçilecek
+        // Çıkış butonuna tıklandığında çıkış yapılacak ve panel1e geçilecek
         b4.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -51,25 +52,26 @@ public class Panel6 extends BasePanel {
             }
         });
 
-        // Başlangıçta şifre değişiklik alanlarını gizleyelim
+        // Başlangıçta şifre değişiklik alanları gizli
         l4.setVisible(false);
         l5.setVisible(false);
         pf2.setVisible(false);
         pf1.setVisible(false);
         b2.setVisible(false);
-        // Şifre değiştirme butonuna tıklandığında şifre alanlarını göster
+        // Şifre değiştirme butonuna tıklandığında şifre alanlarını gösterilsin
         b1.addActionListener(new ActionListener() {
             @Override
 
             public void actionPerformed(ActionEvent e) {
-                l4.setVisible(true); // Yeni şifre etiketini göster
-                l5.setVisible(true); // Eski şifre etiketini göster
-                pf2.setVisible(true); // Eski şifre giriş alanını göster
-                pf1.setVisible(true); // Yeni şifre giriş alanını göster
-                b2.setVisible(true); // Şifre değişikliğini onayla butonunu göster
+                l4.setVisible(true);
+                l5.setVisible(true);
+                pf2.setVisible(true);
+                pf1.setVisible(true);
+                b2.setVisible(true);
             }
         });
 
+        //Şifre değiştirme
         b2.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {

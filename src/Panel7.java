@@ -8,6 +8,7 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -36,7 +37,7 @@ public class Panel7 extends BasePanel {
         add(panel);
 
         // Kullanıcı ID'sini SessionManager üzerinden alıyoruz
-        int currentUserId = SessionManager.getInstance().getUserId();  // Kullanıcı ID'si alınır
+        int currentUserId = SessionManager.getInstance().getUserId();
 
         // Sohbet odalarını veritabanından al
         List<Room> rooms = getRoomsFromDatabase();
@@ -44,7 +45,7 @@ public class Panel7 extends BasePanel {
         // Sohbet panelini dinamik olarak oluştur
         addDynamicButtons(rooms);
 
-        // Timer'ı başlat
+        //zamanlayıcıyı  başlat. bu veritabından mesaj çekecek
         startMessageTimer();
 
         // Diğer butonlar için aksiyonlar
@@ -55,40 +56,42 @@ public class Panel7 extends BasePanel {
                 switchToPanel(new Panel3(frame));
             }
         });
-
+        //mesaj gönder
         gonder.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Mesaj kutusundaki metni al
-                String mesaj = textField1.getText().trim();
-
-                // Mesaj boşsa işlem yapma
-                if (mesaj.isEmpty()) {
-                    JOptionPane.showMessageDialog(frame, "Mesaj boş olamaz.", "Hata", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                // Aktif bir sohbet odası seçilip seçilmediğini kontrol et
-                if (currentChatRoom == null) {
-                    JOptionPane.showMessageDialog(frame, "Lütfen bir sohbet odası seçin.", "Hata", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                // Mesajı gönder
                 try {
+                    // Mesaj kutusundaki texti al
+                    String mesaj = textField1.getText().trim();
+
+                    // Mesaj boşsa özel hatayı fırlat
+                    if (mesaj.isEmpty()) {
+                        throw new EmptyInputException("Mesaj boş olamaz.");
+                    }
+
+                    // Aktif bir sohbet odası seçilip seçilmediğini kontrol et
+                    if (currentChatRoom == null) {
+                        JOptionPane.showMessageDialog(frame, "Lütfen bir sohbet odası seçin.", "Hata", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    // Mesajı gönder
                     dbFunctions.sendMessage(currentChatRoom.id, mesaj);
 
                     // Mesaj gönderildikten sonra mesaj alanını temizle
                     textField1.setText("");
 
-                    // Sohbet panelini güncelle (yeni mesajı göstermek için)
-                    updateChatMessages(currentChatRoom.id);
+
+                } catch (EmptyInputException ex) {
+                    // Özel hatayı yakala ve kullanıcıya göster
+                    JOptionPane.showMessageDialog(frame, ex.getMessage(), "Hata", JOptionPane.ERROR_MESSAGE);
                 } catch (SQLException ex) {
                     ex.printStackTrace();
                     JOptionPane.showMessageDialog(frame, "Mesaj gönderilirken bir hata oluştu.", "Hata", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
+
 
         b12.addActionListener(new ActionListener() {
             @Override
@@ -132,24 +135,21 @@ public class Panel7 extends BasePanel {
         for (Room room : rooms) {
             JButton roomButton = new JButton(room.name);  // Room sınıfındaki name kullanılıyor
 
-            // Buton boyutunu ayarla
             roomButton.setPreferredSize(new Dimension(200, 50)); // Genişlik 200, yükseklik 50
             roomButton.setMaximumSize(new Dimension(200, 50));   // Maksimum boyutu sınırlayın
             roomButton.setAlignmentX(Component.CENTER_ALIGNMENT); // Ortalansın
 
-            // Butona tıklandığında, odanın ID'si ile işlemi yapacak
+            // Butona tıklandığında curret room olarak tıklanan room belirlenir
             roomButton.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    // Odayı aktif hale getir ve currentChatRoom'u güncelle
                     setCurrentChatRoom(room);
 
-                    // Sohbeti güncelle (mesajları göster)
                     updateChatMessages(room.id);
                 }
             });
 
-            sohbetpanel.add(Box.createVerticalStrut(10)); // Butonlar arasında boşluk
+            sohbetpanel.add(Box.createVerticalStrut(10));
             sohbetpanel.add(roomButton);
         }
 
@@ -162,14 +162,14 @@ public class Panel7 extends BasePanel {
         this.currentChatRoom = room;
         l35.setText("Aktif Sohbet: " + room.name);
     }
-
+    //Sohbetteki mesajları günceller ve ekranda gösterir
     private void updateChatMessages(int chatRoomId) {
         try {
             int currentUserId = SessionManager.getInstance().getUserId();
             List<Message> messages = dbFunctions.getMessages(chatRoomId);
 
             // Mesajları tarihe göre sıralama
-            messages.sort((msg1, msg2) -> msg1.timestamp.compareTo(msg2.timestamp));
+            messages.sort(Comparator.comparing(msg -> msg.timestamp));
 
             SwingUtilities.invokeLater(() -> {
                 sohbetalani.removeAll();
@@ -223,7 +223,7 @@ public class Panel7 extends BasePanel {
             e.printStackTrace();
         }
     }
-
+    //yıldızlı mesaj ekleme
     private void saveMessageToStarredFile(Message msg) {
         String starredMessage = String.format("%s:%s:%d", msg.message, msg.timestamp, msg.user_id);
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("staredMessages.txt", true))) {

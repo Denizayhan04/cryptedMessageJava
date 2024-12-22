@@ -6,7 +6,7 @@ public class BasePanel extends JPanel {
     public BasePanel(JFrame frame) {
         this.frame=frame;
     }
-
+    //GUİ panel değiştirme methodu
     public void switchToPanel(JPanel panel) {
         frame.setContentPane(panel);
         frame.revalidate();
